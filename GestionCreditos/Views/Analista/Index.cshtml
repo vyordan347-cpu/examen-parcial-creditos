@@ -1,0 +1,74 @@
+@model IEnumerable<GestionCreditos.Models.SolicitudCredito>
+
+@{
+    ViewData["Title"] = "Panel de Analista";
+}
+
+<h1>Panel de Analista - Solicitudes Pendientes</h1>
+
+@if (TempData["Exito"] != null)
+{
+    <div class="alert alert-success">@TempData["Exito"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+@if (Model.Any())
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Cliente (Ingresos)</th>
+                <th>Monto Solicitado</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Model)
+            {
+                <tr>
+                    <td>@s.Cliente.IngresosMensuales.ToString("C")</td>
+                    <td>@s.MontoSolicitado.ToString("C")</td>
+                    <td>@s.FechaSolicitud.ToString("dd/MM/yyyy")</td>
+                    <td>
+                        <form asp-action="Aprobar" asp-route-id="@s.Id" method="post" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-success">Aprobar</button>
+                        </form>
+
+                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalRechazo@(s.Id)">
+                            Rechazar
+                        </button>
+
+                        <div class="modal fade" id="modalRechazo@(s.Id)" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form asp-action="Rechazar" asp-route-id="@s.Id" method="post">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Rechazar Solicitud #@s.Id</h5>
+                                        </div>
+                                        <div class="modal-body">
+                                            <label class="form-label">Motivo de rechazo (obligatorio)</label>
+                                            <textarea name="motivoRechazo" class="form-control" required></textarea>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No hay solicitudes pendientes por evaluar.</p>
+}
