@@ -6,18 +6,22 @@ using GestionCreditos.Models;
 using System.Security.Claims;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
+using GestionCreditos.Messaging;
 namespace GestionCreditos.Controllers
+
 {
     [Authorize]
     public class SolicitudesController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly IDistributedCache _cache;
+        private readonly RabbitMqPublisher _publisher;
 
-        public SolicitudesController(ApplicationDbContext context, IDistributedCache cache)
+        public SolicitudesController(ApplicationDbContext context, IDistributedCache cache, RabbitMqPublisher publisher)
         {
             _context = context;
             _cache = cache;
+            _publisher = publisher;
         }
 
         private string ClaveCacheListado => $"listado_solicitudes_{UsuarioActualId}";
@@ -190,7 +194,16 @@ namespace GestionCreditos.Controllers
             // Invalidar el caché del listado, porque ahora hay una solicitud nueva
             await _cache.RemoveAsync(ClaveCacheListado);
 
+            // Publicar evento de solicitud registrada (después de persistir con éxito)
+            var publicado = await _publisher.PublicarSolicitudRegistradaAsync(solicitud.Id, UsuarioActualId);
+
             ViewBag.Exito = "Solicitud registrada correctamente. Quedó en estado Pendiente.";
+
+            if (!publicado)
+            {
+                ViewBag.Advertencia = "Tu solicitud fue registrada, pero no pudimos enviar la notificación de recepción. Esto no afecta tu solicitud.";
+            }
+
             return View();
         }
         [HttpGet]
@@ -211,6 +224,15 @@ namespace GestionCreditos.Controllers
                 Estado = solicitud.Estado.ToString(),
                 MotivoRechazo = solicitud.MotivoRechazo
             });
+        }
+        public async Task<IActionResult> MisNotificaciones()
+        {
+            var notificaciones = await _context.Notificaciones
+                .Where(n => n.UsuarioId == UsuarioActualId)
+                .OrderByDescending(n => n.FechaProcesamientoUtc)
+                .ToListAsync();
+
+            return View(notificaciones);
         }
     }
 }

@@ -31,6 +31,8 @@ builder.Services.AddSession(options =>
 });
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<GestionCreditos.Messaging.RabbitMqPublisher>();
+builder.Services.AddHostedService<GestionCreditos.Messaging.RabbitMqConsumerService>();
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
