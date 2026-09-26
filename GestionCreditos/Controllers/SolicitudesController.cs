@@ -94,5 +94,65 @@ namespace GestionCreditos.Controllers
 
             return View(solicitud);
         }
+        public IActionResult Crear()
+        {
+            return View();
+        }
+
+        // POST: Solicitudes/Crear
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Crear(decimal montoSolicitado)
+        {
+            // 1) Usuario debe estar autenticado -> ya lo garantiza [Authorize] en la clase
+
+            // 2) Buscar el cliente activo del usuario actual
+            var cliente = await _context.Clientes
+                .FirstOrDefaultAsync(c => c.UsuarioId == UsuarioActualId && c.Activo);
+
+            if (cliente == null)
+            {
+                ViewBag.Error = "No se encontró un cliente activo asociado a tu usuario.";
+                return View();
+            }
+
+            // 3) Monto no puede superar 10 veces los ingresos mensuales
+            if (montoSolicitado > cliente.IngresosMensuales * 10)
+            {
+                ViewBag.Error = "El monto solicitado no puede superar 10 veces tus ingresos mensuales.";
+                return View();
+            }
+
+            if (montoSolicitado <= 0)
+            {
+                ViewBag.Error = "El monto solicitado debe ser mayor a 0.";
+                return View();
+            }
+
+            // 4) No permitir más de una solicitud Pendiente por cliente
+            var yaTienePendiente = await _context.SolicitudesCredito
+                .AnyAsync(s => s.ClienteId == cliente.Id && s.Estado == EstadoSolicitud.Pendiente);
+
+            if (yaTienePendiente)
+            {
+                ViewBag.Error = "Ya tienes una solicitud Pendiente. No puedes registrar otra hasta que sea evaluada.";
+                return View();
+            }
+
+            // Todo válido: crear la solicitud
+            var solicitud = new SolicitudCredito
+            {
+                ClienteId = cliente.Id,
+                MontoSolicitado = montoSolicitado,
+                Estado = EstadoSolicitud.Pendiente,
+                FechaSolicitud = DateTime.Now
+            };
+
+            _context.SolicitudesCredito.Add(solicitud);
+            await _context.SaveChangesAsync();
+
+            ViewBag.Exito = "Solicitud registrada correctamente. Quedó en estado Pendiente.";
+            return View();
+        }
     }
 }
