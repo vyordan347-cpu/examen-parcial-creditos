@@ -1,0 +1,78 @@
+@{
+    ViewData["Title"] = "Mis Solicitudes";
+    var solicitudes = ViewBag.Solicitudes as List<GestionCreditos.Models.SolicitudCredito>;
+}
+
+<h1>Mis Solicitudes de Crédito</h1>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul>
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
+}
+
+<form asp-action="Mis" method="get" class="row g-3 mb-4">
+    <div class="col-md-2">
+        <label class="form-label">Estado</label>
+        <select name="estado" class="form-control">
+            <option value="">-- Todos --</option>
+            <option value="Pendiente">Pendiente</option>
+            <option value="Aprobado">Aprobado</option>
+            <option value="Rechazado">Rechazado</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Monto mínimo</label>
+        <input type="number" step="0.01" name="montoMin" class="form-control" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Monto máximo</label>
+        <input type="number" step="0.01" name="montoMax" class="form-control" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Fecha inicio</label>
+        <input type="date" name="fechaInicio" class="form-control" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Fecha fin</label>
+        <input type="date" name="fechaFin" class="form-control" />
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </div>
+</form>
+
+@if (solicitudes != null && solicitudes.Any())
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Monto Solicitado</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in solicitudes)
+            {
+                <tr>
+                    <td>@s.MontoSolicitado.ToString("C")</td>
+                    <td>@s.FechaSolicitud.ToString("dd/MM/yyyy")</td>
+                    <td>@s.Estado</td>
+                    <td><a asp-action="Detalle" asp-route-id="@s.Id" class="btn btn-sm btn-outline-primary">Ver detalle</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (solicitudes != null)
+{
+    <p>No tienes solicitudes registradas (o ninguna coincide con los filtros).</p>
+}
