@@ -18,9 +18,11 @@ builder.Services.AddControllersWithViews();
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+
     await GestionCreditos.Data.DbSeeder.SeedAsync(scope.ServiceProvider);
 }
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

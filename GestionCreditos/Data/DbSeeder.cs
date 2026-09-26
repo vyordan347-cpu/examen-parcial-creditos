@@ -33,32 +33,44 @@ namespace GestionCreditos.Data
             }
 
             // 3) Crear un usuario Cliente de prueba si no existe
-            var clienteEmail = "cliente@tecnogas.com";
-            var usuarioCliente = await userManager.FindByEmailAsync(clienteEmail);
-            if (usuarioCliente == null)
+            var cliente1Email = "cliente@tecnogas.com";
+            var usuarioCliente1 = await userManager.FindByEmailAsync(cliente1Email);
+            if (usuarioCliente1 == null)
             {
-                usuarioCliente = new IdentityUser
+                usuarioCliente1 = new IdentityUser
                 {
-                    UserName = clienteEmail,
-                    Email = clienteEmail,
+                    UserName = cliente1Email,
+                    Email = cliente1Email,
                     EmailConfirmed = true
                 };
-                await userManager.CreateAsync(usuarioCliente, "Cliente123!");
+                await userManager.CreateAsync(usuarioCliente1, "Cliente123!");
             }
 
+            var cliente2Email = "cliente2@tecnogas.com";
+            var usuarioCliente2 = await userManager.FindByEmailAsync(cliente2Email);
+            if (usuarioCliente2 == null)
+            {
+                usuarioCliente2 = new IdentityUser
+                {
+                    UserName = cliente2Email,
+                    Email = cliente2Email,
+                    EmailConfirmed = true
+                };
+                await userManager.CreateAsync(usuarioCliente2, "Cliente123!");
+            }
             // 4) Sembrar 2 clientes y 2 solicitudes si la tabla está vacía
             if (!context.Clientes.Any())
             {
                 var cliente1 = new Cliente
                 {
-                    UsuarioId = usuarioCliente.Id,
+                    UsuarioId = usuarioCliente1.Id,
                     IngresosMensuales = 3000,
                     Activo = true
                 };
 
                 var cliente2 = new Cliente
                 {
-                    UsuarioId = usuarioCliente.Id,
+                    UsuarioId = usuarioCliente2.Id,
                     IngresosMensuales = 5000,
                     Activo = true
                 };
