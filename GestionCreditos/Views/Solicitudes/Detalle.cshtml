@@ -31,3 +31,65 @@
 </dl>
 
 <a asp-action="Mis" class="btn btn-secondary">Volver al listado</a>
+<div id="estadoConexion" class="mt-3">
+    <span class="badge bg-secondary">Conectando...</span>
+</div>
+
+<div id="avisoActualizacion" class="alert alert-info mt-3" style="display:none;"></div>
+
+@section Scripts {
+    <script>
+        const solicitudId = @Model.Id;
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/hubs/solicitudes")
+            .withAutomaticReconnect()
+            .build();
+
+        function actualizarBadgeConexion(texto, clase) {
+            document.getElementById("estadoConexion").innerHTML =
+                `<span class="badge ${clase}">${texto}</span>`;
+        }
+
+        function aplicarEstado(data) {
+            if (data.solicitudId !== solicitudId && data.SolicitudId !== solicitudId) {
+                return; // el evento es de otra solicitud, ignorar
+            }
+
+            const estado = data.estado || data.Estado;
+            const motivo = data.motivoRechazo || data.MotivoRechazo;
+
+            const aviso = document.getElementById("avisoActualizacion");
+            aviso.style.display = "block";
+            aviso.innerText = "El estado de tu solicitud cambió a: " + estado +
+                (motivo ? (" (Motivo: " + motivo + ")") : "");
+
+            // Recargamos la página para reflejar el nuevo estado en toda la vista
+            setTimeout(() => location.reload(), 2000);
+        }
+
+        connection.on("SolicitudEstadoActualizado", aplicarEstado);
+
+        connection.onreconnecting(() => {
+            actualizarBadgeConexion("Reconectando...", "bg-warning");
+        });
+
+        connection.onreconnected(async () => {
+            actualizarBadgeConexion("Conectado", "bg-success");
+            // Al reconectar, consultamos el estado vigente por si hubo cambios durante la desconexión
+            const respuesta = await fetch(`/Solicitudes/EstadoActual/${solicitudId}`);
+            if (respuesta.ok) {
+                const data = await respuesta.json();
+                aplicarEstado(data);
+            }
+        });
+
+        connection.onclose(() => {
+            actualizarBadgeConexion("Desconectado", "bg-danger");
+        });
+
+        connection.start()
+            .then(() => actualizarBadgeConexion("Conectado", "bg-success"))
+            .catch(() => actualizarBadgeConexion("Error de conexión", "bg-danger"));
+    </script>
+}

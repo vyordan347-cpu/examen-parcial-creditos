@@ -193,5 +193,24 @@ namespace GestionCreditos.Controllers
             ViewBag.Exito = "Solicitud registrada correctamente. Quedó en estado Pendiente.";
             return View();
         }
+        [HttpGet]
+        public async Task<IActionResult> EstadoActual(int id)
+        {
+            var solicitud = await _context.SolicitudesCredito
+                .Include(s => s.Cliente)
+                .FirstOrDefaultAsync(s => s.Id == id && s.Cliente.UsuarioId == UsuarioActualId);
+
+            if (solicitud == null)
+            {
+                return NotFound();
+            }
+
+            return Json(new
+            {
+                SolicitudId = solicitud.Id,
+                Estado = solicitud.Estado.ToString(),
+                MotivoRechazo = solicitud.MotivoRechazo
+            });
+        }
     }
 }

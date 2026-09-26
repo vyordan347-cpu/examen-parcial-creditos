@@ -30,7 +30,7 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 builder.Services.AddControllersWithViews();
-
+builder.Services.AddSignalR();
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
@@ -63,7 +63,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
+app.MapHub<GestionCreditos.Hubs.SolicitudesHub>("/hubs/solicitudes");
 app.MapRazorPages()
    .WithStaticAssets();
 
