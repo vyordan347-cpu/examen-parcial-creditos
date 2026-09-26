@@ -34,6 +34,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<GestionCreditos.Messaging.RabbitMqPublisher>();
 builder.Services.AddHostedService<GestionCreditos.Messaging.RabbitMqConsumerService>();
 var app = builder.Build();
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+app.Urls.Add($"http://0.0.0.0:{port}");
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
