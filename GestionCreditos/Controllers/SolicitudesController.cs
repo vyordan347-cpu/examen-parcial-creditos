@@ -1,0 +1,98 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using GestionCreditos.Data;
+using GestionCreditos.Models;
+using System.Security.Claims;
+
+namespace GestionCreditos.Controllers
+{
+    [Authorize]
+    public class SolicitudesController : Controller
+    {
+        private readonly ApplicationDbContext _context;
+
+        public SolicitudesController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        private string UsuarioActualId => User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // GET: Solicitudes/Mis
+        public async Task<IActionResult> Mis(EstadoSolicitud? estado, decimal? montoMin, decimal? montoMax, DateTime? fechaInicio, DateTime? fechaFin)
+        {
+            // Validación server-side: rango de fechas inválido
+            if (fechaInicio.HasValue && fechaFin.HasValue && fechaInicio > fechaFin)
+            {
+                ModelState.AddModelError("", "La fecha de inicio no puede ser mayor a la fecha fin.");
+            }
+
+            // Validación server-side: montos negativos
+            if (montoMin.HasValue && montoMin < 0)
+            {
+                ModelState.AddModelError("", "El monto mínimo no puede ser negativo.");
+            }
+            if (montoMax.HasValue && montoMax < 0)
+            {
+                ModelState.AddModelError("", "El monto máximo no puede ser negativo.");
+            }
+
+            var query = _context.SolicitudesCredito
+                .Include(s => s.Cliente)
+                .Where(s => s.Cliente.UsuarioId == UsuarioActualId)
+                .AsQueryable();
+
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Solicitudes = new List<SolicitudCredito>();
+                return View();
+            }
+
+            if (estado.HasValue)
+            {
+                query = query.Where(s => s.Estado == estado.Value);
+            }
+
+            if (montoMin.HasValue)
+            {
+                query = query.Where(s => s.MontoSolicitado >= montoMin.Value);
+            }
+
+            if (montoMax.HasValue)
+            {
+                query = query.Where(s => s.MontoSolicitado <= montoMax.Value);
+            }
+
+            if (fechaInicio.HasValue)
+            {
+                query = query.Where(s => s.FechaSolicitud >= fechaInicio.Value);
+            }
+
+            if (fechaFin.HasValue)
+            {
+                query = query.Where(s => s.FechaSolicitud <= fechaFin.Value);
+            }
+
+            var solicitudes = await query.OrderByDescending(s => s.FechaSolicitud).ToListAsync();
+
+            ViewBag.Solicitudes = solicitudes;
+            return View();
+        }
+
+        // GET: Solicitudes/Detalle/5
+        public async Task<IActionResult> Detalle(int id)
+        {
+            var solicitud = await _context.SolicitudesCredito
+                .Include(s => s.Cliente)
+                .FirstOrDefaultAsync(s => s.Id == id && s.Cliente.UsuarioId == UsuarioActualId);
+
+            if (solicitud == null)
+            {
+                return NotFound();
+            }
+
+            return View(solicitud);
+        }
+    }
+}
