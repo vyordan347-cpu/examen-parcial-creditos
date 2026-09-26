@@ -27,6 +27,16 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
                     </ul>
+                    @{
+    var ultimaSolicitudId = Context.Session.GetInt32("UltimaSolicitudId");
+    var ultimaSolicitudMonto = Context.Session.GetString("UltimaSolicitudMonto");
+}
+@if (ultimaSolicitudId.HasValue)
+{
+    <a class="nav-link text-dark" asp-controller="Solicitudes" asp-action="Detalle" asp-route-id="@ultimaSolicitudId">
+        Ver última solicitud (@ultimaSolicitudMonto)
+    </a>
+}
                     <partial name="_LoginPartial" />
                 </div>
             </div>
