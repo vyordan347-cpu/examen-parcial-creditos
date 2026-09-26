@@ -4,19 +4,23 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using GestionCreditos.Data;
 using GestionCreditos.Models;
+using Microsoft.AspNetCore.SignalR;
+using GestionCreditos.Hubs;
 
 namespace GestionCreditos.Controllers
 {
     [Authorize(Roles = "Analista")]
     public class AnalistaController : Controller
     {
-        private readonly ApplicationDbContext _context;
+         private readonly ApplicationDbContext _context;
         private readonly IDistributedCache _cache;
+        private readonly IHubContext<SolicitudesHub> _hubContext;
 
-        public AnalistaController(ApplicationDbContext context, IDistributedCache cache)
+        public AnalistaController(ApplicationDbContext context, IDistributedCache cache, IHubContext<SolicitudesHub> hubContext)
         {
             _context = context;
             _cache = cache;
+            _hubContext = hubContext;
         }
 
         // GET: Analista
@@ -65,6 +69,14 @@ namespace GestionCreditos.Controllers
             // Invalidar el caché del listado del cliente dueño de esta solicitud
             await _cache.RemoveAsync($"listado_solicitudes_{solicitud.Cliente.UsuarioId}");
 
+            // Emitir el evento en tiempo real, solo al usuario dueño de la solicitud
+            await _hubContext.Clients.User(solicitud.Cliente.UsuarioId).SendAsync("SolicitudEstadoActualizado", new
+            {
+                SolicitudId = solicitud.Id,
+                Estado = solicitud.Estado.ToString(),
+                MotivoRechazo = solicitud.MotivoRechazo
+            });
+
             TempData["Exito"] = "Solicitud aprobada correctamente.";
             return RedirectToAction(nameof(Index));
         }
@@ -99,7 +111,14 @@ namespace GestionCreditos.Controllers
             solicitud.MotivoRechazo = motivoRechazo;
             await _context.SaveChangesAsync();
 
-            await _cache.RemoveAsync($"listado_solicitudes_{solicitud.Cliente.UsuarioId}");
+             await _cache.RemoveAsync($"listado_solicitudes_{solicitud.Cliente.UsuarioId}");
+
+            await _hubContext.Clients.User(solicitud.Cliente.UsuarioId).SendAsync("SolicitudEstadoActualizado", new
+            {
+                SolicitudId = solicitud.Id,
+                Estado = solicitud.Estado.ToString(),
+                MotivoRechazo = solicitud.MotivoRechazo
+            });
 
             TempData["Exito"] = "Solicitud rechazada correctamente.";
             return RedirectToAction(nameof(Index));
