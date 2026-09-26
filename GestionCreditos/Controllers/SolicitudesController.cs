@@ -4,18 +4,23 @@ using Microsoft.EntityFrameworkCore;
 using GestionCreditos.Data;
 using GestionCreditos.Models;
 using System.Security.Claims;
-
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 namespace GestionCreditos.Controllers
 {
     [Authorize]
     public class SolicitudesController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IDistributedCache _cache;
 
-        public SolicitudesController(ApplicationDbContext context)
+        public SolicitudesController(ApplicationDbContext context, IDistributedCache cache)
         {
             _context = context;
+            _cache = cache;
         }
+
+        private string ClaveCacheListado => $"listado_solicitudes_{UsuarioActualId}";
 
         private string UsuarioActualId => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -74,7 +79,34 @@ namespace GestionCreditos.Controllers
                 query = query.Where(s => s.FechaSolicitud <= fechaFin.Value);
             }
 
-            var solicitudes = await query.OrderByDescending(s => s.FechaSolicitud).ToListAsync();
+            List<SolicitudCredito> solicitudes;
+
+            // Solo usamos caché cuando NO hay filtros activos (el listado "base" del usuario)
+            bool sinFiltros = !estado.HasValue && !montoMin.HasValue && !montoMax.HasValue && !fechaInicio.HasValue && !fechaFin.HasValue;
+
+            if (sinFiltros)
+            {
+                var cacheado = await _cache.GetStringAsync(ClaveCacheListado);
+                if (cacheado != null)
+                {
+                    solicitudes = JsonSerializer.Deserialize<List<SolicitudCredito>>(cacheado);
+                }
+                else
+                {
+                    solicitudes = await query.OrderByDescending(s => s.FechaSolicitud).ToListAsync();
+
+                    var opciones = new DistributedCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
+                    };
+                    await _cache.SetStringAsync(ClaveCacheListado, JsonSerializer.Serialize(solicitudes), opciones);
+                }
+            }
+            else
+            {
+                // Con filtros activos, siempre consultamos directo (no cacheamos combinaciones de filtros)
+                solicitudes = await query.OrderByDescending(s => s.FechaSolicitud).ToListAsync();
+            }
 
             ViewBag.Solicitudes = solicitudes;
             return View();
@@ -91,6 +123,10 @@ namespace GestionCreditos.Controllers
             {
                 return NotFound();
             }
+
+            // Guardar en sesión (Redis) la última solicitud visitada
+            HttpContext.Session.SetInt32("UltimaSolicitudId", solicitud.Id);
+            HttpContext.Session.SetString("UltimaSolicitudMonto", solicitud.MontoSolicitado.ToString("C"));
 
             return View(solicitud);
         }
@@ -148,8 +184,11 @@ namespace GestionCreditos.Controllers
                 FechaSolicitud = DateTime.Now
             };
 
-            _context.SolicitudesCredito.Add(solicitud);
+             _context.SolicitudesCredito.Add(solicitud);
             await _context.SaveChangesAsync();
+
+            // Invalidar el caché del listado, porque ahora hay una solicitud nueva
+            await _cache.RemoveAsync(ClaveCacheListado);
 
             ViewBag.Exito = "Solicitud registrada correctamente. Quedó en estado Pendiente.";
             return View();
